@@ -48,6 +48,12 @@ export default () => {
   return useMemo(
     () => [
       {
+        id: 'openFreeMapDark',
+        title: t('mapOpenFreeMapDark') || 'OpenFreeMap Dark',
+        style: 'https://tiles.openfreemap.org/styles/dark',
+        available: true,
+      },
+      {
         id: 'openFreeMap',
         title: t('mapOpenFreeMap'),
         style: 'https://tiles.openfreemap.org/styles/liberty',

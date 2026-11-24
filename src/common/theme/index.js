@@ -9,7 +9,19 @@ export default (server, darkMode, direction) =>
     () =>
       createTheme({
         typography: {
-          fontFamily: 'Roboto,Segoe UI,Helvetica Neue,Arial,sans-serif',
+          fontFamily: 'Inter, Roboto, "Segoe UI", "Helvetica Neue", Arial, "Noto Sans", sans-serif',
+          h1: {
+            fontWeight: 700,
+            letterSpacing: '-0.03em',
+          },
+          h2: {
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+          },
+          h3: {
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+          },
         },
         palette: palette(server, darkMode),
         direction,

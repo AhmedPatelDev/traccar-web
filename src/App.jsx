@@ -82,7 +82,7 @@ const App = () => {
       <div className={classes.page}>
         <Outlet />
       </div>
-      {!desktop && !features.disableTabs && (
+      {!desktop && !features.disableTabs && location.pathname !== '/' && (
         <div className={classes.menu}>
           <BottomMenu />
         </div>

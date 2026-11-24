@@ -681,5 +681,18 @@
     "categoryVan": "Van",
     "categoryScooter": "Scooter",
     "maintenanceStart": "Start",
-    "maintenancePeriod": "Period"
+    "maintenancePeriod": "Period",
+    "familyTitle": "Family",
+    "familyAlerts": "Alerts",
+    "familyMoving": "Moving",
+    "familyStationary": "Stationary",
+    "familyDirections": "Directions",
+    "familyFollow": "Follow",
+    "familyFollowing": "Following",
+    "familyJustNow": "Just now",
+    "familyCharging": "Charging",
+    "familyClose": "Close",
+    "familyNoLocation": "No location data yet",
+    "familyNoMembers": "No family members yet",
+    "mapOpenFreeMapDark": "OpenFreeMap Dark"
 }

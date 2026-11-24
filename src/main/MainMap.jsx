@@ -1,77 +1,54 @@
-import { useCallback, useState } from 'react';
-import { useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
-import { useDispatch, useSelector } from 'react-redux';
-import MapView from '../map/core/MapView';
-import MapSelectedDevice from '../map/main/MapSelectedDevice';
+import { useEffect } from 'react';
+import MapView, { map } from '../map/core/MapView';
 import MapAccuracy from '../map/main/MapAccuracy';
 import MapGeofence from '../map/MapGeofence';
 import MapCurrentLocation from '../map/MapCurrentLocation';
 import PoiMap from '../map/main/PoiMap';
-import MapPadding from '../map/MapPadding';
-import { devicesActions } from '../store';
-import MapDefaultCamera from '../map/main/MapDefaultCamera';
 import MapLiveRoutes from '../map/main/MapLiveRoutes';
-import MapPositionMarkers from '../map/MapPositionMarkers';
 import MapOverlay from '../map/overlay/MapOverlay';
-import MapGeocoder from '../map/control/MapGeocoder';
-import MapScale from '../map/MapScale';
-import MapRuler from '../map/control/MapRuler';
-import MapNotification from '../map/control/MapNotification';
-import useFeatures from '../common/util/useFeatures';
+import FamilyMarkers from './FamilyMarkers';
+import FamilyCamera from './FamilyCamera';
 
-const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
-  const theme = useTheme();
-  const dispatch = useDispatch();
-
-  const desktop = useMediaQuery(theme.breakpoints.up('md'));
-
-  const eventsAvailable = useSelector((state) => !!state.events.items.length);
-
-  const features = useFeatures();
-
-  const [rulerActive, setRulerActive] = useState(false);
-
-  const onMarkerClick = useCallback(
-    (_, deviceId) => {
-      dispatch(devicesActions.selectId(deviceId));
-    },
-    [dispatch],
-  );
+const MainMap = ({
+  positions,
+  selectedPosition,
+  selectedDeviceId,
+  follow,
+  onFollowChange,
+  onSelect,
+  onBackgroundClick,
+}) => {
+  useEffect(() => {
+    const onMapClick = (event) => {
+      if (!event.defaultPrevented) {
+        onBackgroundClick?.();
+      }
+    };
+    map.on('click', onMapClick);
+    return () => map.off('click', onMapClick);
+  }, [onBackgroundClick]);
 
   return (
-    <>
-      <MapView>
-        <MapOverlay />
-        <MapGeofence />
-        <MapAccuracy positions={filteredPositions} />
-        <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
-        <PoiMap />
-        <MapPositionMarkers
-          positions={filteredPositions}
-          onMarkerClick={onMarkerClick}
-          selectedPosition={selectedPosition}
-          showStatus
-          disabled={rulerActive}
-        />
-        <MapDefaultCamera filteredPositions={filteredPositions} />
-        <MapSelectedDevice />
-        <MapRuler positions={filteredPositions} onActiveChange={setRulerActive} />
-        {!features.disableEvents && (
-          <MapNotification enabled={eventsAvailable} onClick={onEventsClick} />
-        )}
-      </MapView>
-      <MapScale />
+    <MapView showSwitcher={false}>
+      <MapOverlay />
+      <MapGeofence />
+      <MapAccuracy positions={positions} />
+      <MapLiveRoutes deviceIds={positions.map((position) => position.deviceId)} />
+      <PoiMap />
+      <FamilyMarkers
+        positions={positions}
+        selectedDeviceId={selectedDeviceId}
+        onSelect={onSelect}
+      />
+      <FamilyCamera
+        positions={positions}
+        selectedPosition={selectedPosition}
+        selectedDeviceId={selectedDeviceId}
+        follow={follow}
+        onFollowChange={onFollowChange}
+      />
       <MapCurrentLocation />
-      <MapGeocoder />
-      {desktop && !features.disableDeviceList && (
-        <MapPadding
-          start={
-            parseInt(theme.dimensions.drawerWidthDesktop, 10) + parseInt(theme.spacing(1.5), 10)
-          }
-        />
-      )}
-    </>
+    </MapView>
   );
 };
 

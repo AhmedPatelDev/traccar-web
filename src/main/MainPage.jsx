@@ -1,186 +1,247 @@
-import { lazy, Suspense, useState, useCallback, useEffect } from 'react';
-import { Paper } from '@mui/material';
-import { makeStyles } from 'tss-react/mui';
-import { useTheme } from '@mui/material/styles';
-import useMediaQuery from '@mui/material/useMediaQuery';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import DeviceList from './DeviceList';
-import BottomMenu from '../common/components/BottomMenu';
-import StatusCard from '../common/components/StatusCard';
+import { useNavigate } from 'react-router-dom';
+import { Badge, IconButton, Tooltip } from '@mui/material';
+import { makeStyles } from 'tss-react/mui';
+import PeopleIcon from '@mui/icons-material/People';
+import SettingsIcon from '@mui/icons-material/Settings';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { devicesActions } from '../store';
-import usePersistedState from '../common/util/usePersistedState';
-import EventsDrawer from './EventsDrawer';
-import useFilter from './useFilter';
-import MainToolbar from './MainToolbar';
-import { useAttributePreference } from '../common/util/preferences';
+import { useTranslation } from '../common/components/LocalizationProvider';
 import useFeatures from '../common/util/useFeatures';
+import EventsDrawer from './EventsDrawer';
+import FamilySwitcher from './FamilySwitcher';
+import FocusedDeviceCard from './FocusedDeviceCard';
+import { tr } from './familyUtils';
 
 const MainMap = lazy(() => import('./MainMap'));
 
 const useStyles = makeStyles()((theme) => ({
   root: {
-    height: '100%',
+    position: 'fixed',
+    inset: 0,
+    overflow: 'hidden',
+    background: '#0B0F19',
   },
-  sidebar: {
-    pointerEvents: 'none',
-    display: 'flex',
-    flexDirection: 'column',
-    [theme.breakpoints.up('md')]: {
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      height: `calc(100% - ${theme.spacing(3)})`,
-      width: theme.dimensions.drawerWidthDesktop,
-      margin: theme.spacing(1.5),
-      zIndex: 3,
+  mapWrap: {
+    position: 'absolute',
+    inset: 0,
+    '& .maplibregl-ctrl-top-right': {
+      top: `calc(env(safe-area-inset-top) + 78px)`,
+      right: `calc(env(safe-area-inset-right) + 12px)`,
+    },
+    '& .maplibregl-ctrl-top-left': {
+      top: `calc(env(safe-area-inset-top) + 78px)`,
+      left: `calc(env(safe-area-inset-left) + 12px)`,
+    },
+    '& .maplibregl-ctrl-bottom-left': {
+      bottom: `calc(env(safe-area-inset-bottom) + 126px)`,
+    },
+    '& .maplibregl-ctrl-bottom-right': {
+      bottom: `calc(env(safe-area-inset-bottom) + 126px)`,
+      right: `calc(env(safe-area-inset-right) + 12px)`,
     },
     [theme.breakpoints.down('md')]: {
-      height: '100%',
-      width: '100%',
+      '&.focused .maplibregl-ctrl-bottom-left, &.focused .maplibregl-ctrl-bottom-right': {
+        bottom: `calc(env(safe-area-inset-bottom) + 340px)`,
+      },
     },
   },
-  header: {
-    pointerEvents: 'auto',
-    zIndex: 6,
-  },
-  footer: {
-    pointerEvents: 'auto',
-    zIndex: 5,
-  },
-  middle: {
-    flex: 1,
-    display: 'grid',
-    minHeight: 0,
-  },
-  contentMap: {
-    pointerEvents: 'auto',
-    gridArea: '1 / 1',
-  },
-  contentList: {
-    pointerEvents: 'auto',
-    gridArea: '1 / 1',
-    zIndex: 4,
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    insetInline: 0,
+    zIndex: 15,
     display: 'flex',
-    minHeight: 0,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1.5),
+    paddingTop: `calc(env(safe-area-inset-top) + 12px)`,
+    paddingInlineStart: `calc(env(safe-area-inset-left) + 12px)`,
+    paddingInlineEnd: `calc(env(safe-area-inset-right) + 12px)`,
+    pointerEvents: 'none',
+  },
+  brand: {
+    pointerEvents: 'auto',
+    appearance: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1.25),
+    padding: '6px 14px 6px 6px',
+    borderRadius: 999,
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    background: 'rgba(18, 24, 38, 0.78)',
+    color: '#F8FAFC',
+    cursor: 'pointer',
+    textAlign: 'start',
+    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+  },
+  brandIcon: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 34,
+    height: 34,
+    borderRadius: '50%',
+    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.28), rgba(56, 189, 248, 0.16))',
+    color: '#10B981',
+  },
+  brandText: {
+    display: 'flex',
+    flexDirection: 'column',
+    lineHeight: 1.1,
+  },
+  brandTitle: {
+    fontSize: '0.9rem',
+    fontWeight: 700,
+    letterSpacing: '-0.01em',
+  },
+  brandMeta: {
+    marginTop: 2,
+    fontSize: '0.66rem',
+    color: '#94A3B8',
+  },
+  topActions: {
+    pointerEvents: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    color: '#F8FAFC',
+    background: 'rgba(18, 24, 38, 0.78)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    boxShadow: '0 12px 36px rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    '&:hover': {
+      background: 'rgba(30, 41, 59, 0.92)',
+    },
   },
 }));
 
 const MainPage = () => {
-  const { classes } = useStyles();
+  const { classes, cx } = useStyles();
   const dispatch = useDispatch();
-  const theme = useTheme();
-
+  const navigate = useNavigate();
+  const t = useTranslation();
   const features = useFeatures();
 
-  const desktop = useMediaQuery(theme.breakpoints.up('md'));
-
-  const mapOnSelect = useAttributePreference('mapOnSelect', true);
-
-  const selectedDeviceId = useSelector((state) => state.devices.selectedId);
+  const devices = useSelector((state) => state.devices.items);
   const positions = useSelector((state) => state.session.positions);
-  const [filteredPositions, setFilteredPositions] = useState([]);
-  const selectedPosition = filteredPositions.find(
-    (position) => selectedDeviceId && position.deviceId === selectedDeviceId,
-  );
+  const selectedDeviceId = useSelector((state) => state.devices.selectedId);
+  const eventsAvailable = useSelector((state) => Boolean(state.events.items.length));
 
-  const [filteredDevices, setFilteredDevices] = useState([]);
-
-  const [keyword, setKeyword] = useState('');
-  const [filter, setFilter] = usePersistedState('deviceFilter', {
-    statuses: [],
-    groups: [],
-    geofences: [],
-  });
-  const [filterSort, setFilterSort] = usePersistedState('filterSort', '');
-  const [filterMap, setFilterMap] = usePersistedState('filterMap', false);
-
-  const [devicesOpen, setDevicesOpen] = useState(desktop);
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [follow, setFollow] = useState(false);
 
-  const onEventsClick = useCallback(() => setEventsOpen(true), [setEventsOpen]);
+  const devicesList = useMemo(
+    () => Object.values(devices).sort((first, second) => first.name.localeCompare(second.name)),
+    [devices],
+  );
+  const positionsList = useMemo(() => Object.values(positions), [positions]);
+
+  const selectedDevice = selectedDeviceId ? devices[selectedDeviceId] : undefined;
+  const selectedPosition = selectedDeviceId ? positions[selectedDeviceId] : undefined;
+  const onlineCount = devicesList.filter((device) => device.status === 'online').length;
 
   useEffect(() => {
-    if (!desktop && mapOnSelect && selectedDeviceId) {
-      setDevicesOpen(false);
-    }
-  }, [desktop, mapOnSelect, selectedDeviceId]);
+    setFollow(false);
+  }, [selectedDeviceId]);
 
-  useFilter(
-    keyword,
-    filter,
-    filterSort,
-    filterMap && !features.disableDeviceList,
-    positions,
-    setFilteredDevices,
-    setFilteredPositions,
+  const selectDevice = useCallback(
+    (deviceId) => {
+      dispatch(devicesActions.selectId(deviceId));
+    },
+    [dispatch],
   );
+
+  const clearSelection = useCallback(() => {
+    dispatch(devicesActions.selectId(null));
+    setFollow(false);
+  }, [dispatch]);
+
+  const onBackgroundClick = useCallback(() => {
+    if (selectedDeviceId) {
+      clearSelection();
+    }
+  }, [selectedDeviceId, clearSelection]);
+
+  const onToggleFollow = useCallback(() => {
+    setFollow((current) => !current);
+  }, []);
 
   return (
     <div className={classes.root}>
-      {desktop && (
+      <div className={cx(classes.mapWrap, selectedDevice && 'focused')}>
         <Suspense fallback={null}>
           <MainMap
-            filteredPositions={filteredPositions}
+            positions={positionsList}
             selectedPosition={selectedPosition}
-            onEventsClick={onEventsClick}
+            selectedDeviceId={selectedDeviceId}
+            follow={follow}
+            onFollowChange={setFollow}
+            onSelect={selectDevice}
+            onBackgroundClick={onBackgroundClick}
           />
         </Suspense>
-      )}
-      <div className={classes.sidebar}>
-        {!features.disableDeviceList && (
-          <Paper square elevation={3} className={classes.header}>
-            <MainToolbar
-              filteredDevices={filteredDevices}
-              devicesOpen={devicesOpen}
-              setDevicesOpen={setDevicesOpen}
-              keyword={keyword}
-              setKeyword={setKeyword}
-              filter={filter}
-              setFilter={setFilter}
-              filterSort={filterSort}
-              setFilterSort={setFilterSort}
-              filterMap={filterMap}
-              setFilterMap={setFilterMap}
-            />
-          </Paper>
-        )}
-        <div className={classes.middle}>
-          {!desktop && (
-            <div className={classes.contentMap}>
-              <Suspense fallback={null}>
-                <MainMap
-                  filteredPositions={filteredPositions}
-                  selectedPosition={selectedPosition}
-                  onEventsClick={onEventsClick}
-                />
-              </Suspense>
-            </div>
-          )}
-          {!features.disableDeviceList && (
-            <Paper
-              square
-              className={classes.contentList}
-              style={devicesOpen ? {} : { visibility: 'hidden' }}
-            >
-              <DeviceList devices={filteredDevices} />
-            </Paper>
-          )}
-        </div>
-        {desktop && !features.disableTabs && (
-          <div className={classes.footer}>
-            <BottomMenu />
-          </div>
-        )}
       </div>
-      <EventsDrawer open={eventsOpen} onClose={() => setEventsOpen(false)} />
-      {selectedDeviceId && !features.disableStatusCard && (
-        <StatusCard
-          deviceId={selectedDeviceId}
+
+      <div className={classes.topBar}>
+        <button type="button" className={classes.brand} onClick={clearSelection}>
+          <span className={classes.brandIcon}>
+            <PeopleIcon fontSize="small" />
+          </span>
+          <span className={classes.brandText}>
+            <span className={classes.brandTitle}>{tr(t, 'familyTitle', 'Family')}</span>
+            <span className={classes.brandMeta}>{`${onlineCount} ${t('deviceStatusOnline')}`}</span>
+          </span>
+        </button>
+
+        <div className={classes.topActions}>
+          {!features.disableEvents && (
+            <Tooltip title={tr(t, 'familyAlerts', 'Alerts')}>
+              <IconButton
+                className={classes.iconButton}
+                onClick={() => setEventsOpen(true)}
+                aria-label={tr(t, 'familyAlerts', 'Alerts')}
+              >
+                <Badge color="error" variant="dot" invisible={!eventsAvailable}>
+                  <NotificationsIcon fontSize="small" />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title={t('settingsTitle')}>
+            <IconButton
+              className={classes.iconButton}
+              onClick={() => navigate('/settings/preferences?menu=true')}
+              aria-label={t('settingsTitle')}
+            >
+              <SettingsIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </div>
+      </div>
+
+      {selectedDevice ? (
+        <FocusedDeviceCard
+          device={selectedDevice}
           position={selectedPosition}
-          onClose={() => dispatch(devicesActions.selectId(null))}
-          desktopPadding={features.disableDeviceList ? 0 : theme.dimensions.drawerWidthDesktop}
+          follow={follow}
+          onToggleFollow={onToggleFollow}
+          onClose={clearSelection}
         />
+      ) : (
+        <FamilySwitcher devices={devicesList} positions={positions} onSelect={selectDevice} />
       )}
+
+      <EventsDrawer open={eventsOpen} onClose={() => setEventsOpen(false)} />
     </div>
   );
 };

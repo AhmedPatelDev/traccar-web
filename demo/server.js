@@ -13,7 +13,7 @@ export const demoServer = (server) => {
   const user = {
     id: 1,
     name: 'Demo',
-    attributes: {},
+    attributes: { language: 'en' },
   };
   server.middlewares.use((request, response, next) => {
     const url = new URL(request.url, 'http://localhost');
@@ -31,6 +31,7 @@ export const demoServer = (server) => {
         data = settings;
         break;
       case '/api/session':
+      case '/api/users/1':
         data = user;
         break;
       case '/api/devices':

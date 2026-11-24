@@ -6,7 +6,7 @@ import { Protocol } from 'pmtiles';
 import { useRef, useLayoutEffect, useEffect, useState, useMemo } from 'react';
 import { useTheme } from '@mui/material';
 import MapSwitcher from '../control/MapSwitcher';
-import { useAttributePreference, usePreference } from '../../common/util/preferences';
+import { useAttributePreference } from '../../common/util/preferences';
 import usePersistedState from '../../common/util/usePersistedState';
 import { mapImages } from './preloadImages';
 import useMapStyles from './useMapStyles';
@@ -68,7 +68,7 @@ const initMap = async () => {
   }
 };
 
-const MapView = ({ children }) => {
+const MapView = ({ children, showSwitcher = true }) => {
   const theme = useTheme();
 
   const containerRef = useRef(null);
@@ -76,19 +76,18 @@ const MapView = ({ children }) => {
   const mapReady = useMapReady();
 
   const mapStyles = useMapStyles();
-  const activeMapStyles = useAttributePreference(
-    'activeMapStyles',
-    'openFreeMap,locationIqStreets,locationIqDark',
-  );
+  const activeMapStyles = useAttributePreference('activeMapStyles', 'openFreeMapDark');
   const [selectedStyleId, setSelectedStyleId] = usePersistedState(
-    'selectedMapStyle',
-    usePreference('map', 'openFreeMap'),
+    'familyMapStyle',
+    'openFreeMapDark',
   );
   const maxZoom = useAttributePreference('web.maxZoom');
 
   const styles = useMemo(() => {
-    const filtered = mapStyles.filter((s) => s.available && activeMapStyles.includes(s.id));
-    return filtered.length ? filtered : mapStyles.filter((s) => s.id === 'osm');
+    const filtered = mapStyles.filter(
+      (s) => s.available && (s.id === 'openFreeMapDark' || activeMapStyles.includes(s.id)),
+    );
+    return filtered.length ? filtered : mapStyles.filter((s) => s.id === 'openFreeMapDark');
   }, [mapStyles, activeMapStyles]);
 
   useAsyncTask(async () => {
@@ -117,7 +116,9 @@ const MapView = ({ children }) => {
   useEffect(() => {
     const style = styles.find((s) => s.id === selectedStyleId);
     if (!style) {
-      setSelectedStyleId(styles[0].id);
+      setSelectedStyleId(
+        styles.some((s) => s.id === 'openFreeMapDark') ? 'openFreeMapDark' : styles[0].id,
+      );
       return;
     }
     updateReadyValue(false);
@@ -147,8 +148,10 @@ const MapView = ({ children }) => {
   }, [containerRef]);
 
   return (
-    <div style={{ width: '100%', height: '100%' }} ref={containerRef}>
-      <MapSwitcher styles={styles} selectedId={selectedStyleId} onSelect={setSelectedStyleId} />
+    <div style={{ width: '100%', height: '100%', background: '#0B0F19' }} ref={containerRef}>
+      {showSwitcher && (
+        <MapSwitcher styles={styles} selectedId={selectedStyleId} onSelect={setSelectedStyleId} />
+      )}
       {mapReady && children}
     </div>
   );
